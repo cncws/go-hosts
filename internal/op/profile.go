@@ -13,7 +13,17 @@ import (
 	"github.com/cncws/hosts-go/cmd/flags"
 )
 
+type profileReader func(string) ([]string, error)
+
 var remoteHistorySuffix = ".history"
+var readerMap = map[string]profileReader{
+	".local":  readLocal,
+	".remote": readRemote,
+}
+
+func SupportProfile(file string) bool {
+	return readerMap[strings.ToLower(filepath.Ext(file))] != nil
+}
 
 func readLocal(file string) ([]string, error) {
 	content, err := os.ReadFile(file)
@@ -61,22 +71,16 @@ func readRemote(file string) ([]string, error) {
 }
 
 func ReadProfile(file string) ([]string, error) {
-	lines := []string{"# profile begin: " + filepath.Base(file)}
-	var content []string
-	var err error
-	switch filepath.Ext(file) {
-	case ".local":
-		if content, err = readLocal(file); err == nil {
-			lines = append(lines, content...)
-			log.Printf("本地配置 %s 已读取\n", filepath.Base(file))
-		}
-	case ".remote":
-		if content, err = readRemote(file); err == nil {
-			lines = append(lines, content...)
-			log.Printf("远程配置 %s 已读取\n", filepath.Base(file))
-		}
+	reader, ok := readerMap[strings.ToLower(filepath.Ext(file))]
+	if !ok {
+		return nil, fmt.Errorf("不支持的文件类型 %s", filepath.Ext(file))
 	}
-	if err != nil {
+	content, err := reader(file)
+	lines := []string{"# profile begin: " + filepath.Base(file)}
+	if err == nil {
+		lines = append(lines, content...)
+		log.Printf("配置 %s 已读取\n", filepath.Base(file))
+	} else {
 		lines = append(lines, "# 读取配置失败："+err.Error())
 	}
 	lines = append(lines, "# profile end, update at "+time.Now().Format(time.RFC3339), "")
@@ -89,10 +93,7 @@ func CollectProfileFiles() ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, ".local") || strings.HasSuffix(path, ".remote") {
+		if !info.IsDir() && SupportProfile(path) {
 			files = append(files, path)
 		}
 		return nil
