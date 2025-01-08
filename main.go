@@ -2,10 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cncws/hosts-go/cmd/flags"
+	"github.com/cncws/hosts-go/internal/op"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -44,103 +42,6 @@ func init() {
 	}
 }
 
-func getProfiles() ([]string, error) {
-	files := []string{}
-	err := filepath.Walk(flags.DataDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, ".local") || strings.HasSuffix(path, ".remote") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	filesname := make([]string, len(files))
-	for i, file := range files {
-		filesname[i] = filepath.Base(file)
-	}
-	log.Printf("工作目录 %v\n", flags.DataDir)
-	log.Printf("读取配置 %v\n", filesname)
-	return files, nil
-}
-
-func readLocal(file string) ([]string, error) {
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Split(string(content), "\n"), nil
-}
-
-func readRemoteHistory(file string) ([]string, error) {
-	return readLocal(file + ".history")
-}
-
-func writeRemoteHistory(file string, data []byte) error {
-	return os.WriteFile(file+".history", data, 0644)
-}
-
-func readRemote(file string) ([]string, error) {
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	urlString := strings.Split(string(content), "\n")[0]
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(urlString)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	writeRemoteHistory(file, body)
-	return strings.Split(string(body), "\n"), nil
-}
-
-func readProfile(file string) ([]string, error) {
-	lines := []string{"# profile begin: " + filepath.Base(file)}
-	if strings.HasSuffix(file, ".local") {
-		content, err := readLocal(file)
-		if err == nil {
-			log.Printf("本地配置 %s 已读取\n", filepath.Base(file))
-			lines = append(lines, content...)
-		}
-	}
-
-	if strings.HasSuffix(file, ".remote") {
-		content, err := readRemote(file)
-		if err == nil {
-			log.Printf("远程配置 %s 已读取\n", filepath.Base(file))
-			lines = append(lines, content...)
-		} else {
-			content, err = readRemoteHistory(file)
-			if err == nil {
-				log.Println("远程配置读取失败，延用上一次配置")
-				lines = append(lines, content...)
-				lines = append(lines, "# 读取远程配置失败，延用上一次配置")
-			} else {
-				log.Printf("远程配置 %s 读取失败\n", filepath.Base(file))
-			}
-		}
-	}
-
-	lines = append(lines, "# profile end, update at "+time.Now().Format(time.RFC3339), "")
-	return lines, nil
-}
-
 func writeSystemHosts(content []string) error {
 	file, err := os.OpenFile(hostsFile, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
@@ -152,13 +53,13 @@ func writeSystemHosts(content []string) error {
 }
 
 func updateSystemHosts() {
-	files, err := getProfiles()
+	files, err := op.CollectProfileFiles()
 	if err != nil || len(files) == 0 {
 		return
 	}
 	hosts := []string{}
 	for _, file := range files {
-		content, err := readProfile(file)
+		content, err := op.ReadProfile(file)
 		if err != nil {
 			continue
 		}
