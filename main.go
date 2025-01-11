@@ -4,7 +4,9 @@ import (
 	"flag"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/cncws/hosts-go/cmd/flags"
@@ -31,7 +33,11 @@ func init() {
 
 func main() {
 	var task = op.NewUpdateHostTask()
-
+	go task.Start()
+	// 退出信号
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// 文件监听
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -40,30 +46,30 @@ func main() {
 	if err = watcher.Add(flags.DataDir); err != nil {
 		log.Fatal(err)
 	}
-
+	// 定时器
 	ticker := time.NewTicker(flags.UpdateInterval)
 	defer ticker.Stop()
 
-	go func() {
-		for {
-			select {
-			// 触发机制1: 文件变动
-			case event, ok := <-watcher.Events:
-				if !ok {
-					continue
-				}
-				switch event.Op {
-				case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove:
-					if op.SupportProfile(event.Name) {
-						task.UpdateImmediately()
-					}
-				}
-			// 触发机制2: 定时
-			case <-ticker.C:
-				task.UpdateImmediately()
+	for {
+		select {
+		// 触发机制1: 文件变动
+		case event, ok := <-watcher.Events:
+			if !ok {
+				continue
 			}
+			switch event.Op {
+			case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove:
+				if op.SupportProfile(event.Name) {
+					task.UpdateImmediately()
+				}
+			}
+		// 触发机制2: 定时
+		case <-ticker.C:
+			task.UpdateImmediately()
+		// 退出
+		case <-sigChan:
+			log.Println("Exit")
+			os.Exit(0)
 		}
-	}()
-
-	task.Start()
+	}
 }

@@ -49,25 +49,24 @@ func readRemote(file string) ([]string, error) {
 	urlString := strings.Split(string(content), "\n")[0]
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(urlString)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		lines, err := readRemoteHistory(file)
-		if err != nil {
-			return []string{fmt.Sprintf("# 读取远程配置失败，status code: %d", resp.StatusCode)}, nil
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == 200 {
+			if body, err := io.ReadAll(resp.Body); err == nil {
+				writeRemoteHistory(file, body)
+				return strings.Split(string(body), "\n"), nil
+			}
+		} else {
+			err = fmt.Errorf("Status %d", resp.StatusCode)
 		}
-		lines = append(lines, "# 读取远程配置失败，延用上一次配置")
+	}
+	// 读取历史
+	if lines, hisErr := readRemoteHistory(file); hisErr == nil {
+		log.Printf("配置 %s 更新失败【%v】延用上一次配置", filepath.Base(file), err)
+		lines = append(lines, "# 配置更新失败，延用上一次配置")
 		return lines, nil
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	writeRemoteHistory(file, body)
-	return strings.Split(string(body), "\n"), nil
+	return nil, err
 }
 
 func ReadProfile(file string) ([]string, error) {
@@ -79,9 +78,10 @@ func ReadProfile(file string) ([]string, error) {
 	lines := []string{"# profile begin: " + filepath.Base(file)}
 	if err == nil {
 		lines = append(lines, content...)
-		log.Printf("配置 %s 已读取\n", filepath.Base(file))
+		log.Printf("配置 %s 加载成功\n", filepath.Base(file))
 	} else {
-		lines = append(lines, "# 读取配置失败："+err.Error())
+		lines = append(lines, fmt.Sprintf("# 配置 %s 加载失败", filepath.Base(file)))
+		log.Printf("配置 %s 加载失败【%v】\n", filepath.Base(file), err)
 	}
 	lines = append(lines, "# profile end, update at "+time.Now().Format(time.RFC3339), "")
 	return lines, nil
@@ -107,6 +107,6 @@ func CollectProfileFiles() ([]string, error) {
 		filesname[i] = filepath.Base(file)
 	}
 	log.Printf("工作目录 %v\n", flags.DataDir)
-	log.Printf("读取配置 %v\n", filesname)
+	log.Printf("加载配置 %v\n", filesname)
 	return files, nil
 }
