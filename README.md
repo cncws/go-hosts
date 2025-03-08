@@ -15,7 +15,7 @@ SwitchHosts 占用了 macOS 一个珍贵的菜单栏图标。
 
 ## 守护进程
 
-macOS 编辑 `~/Library/LaunchAgents/hosts-go.plist` 添加以下内容（替换 `/path/to` 为实际路径）。
+macOS 编辑 `~/Library/LaunchAgents/go-hosts.plist` 添加以下内容（替换 `/path/to` 为实际路径）。
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -23,27 +23,27 @@ macOS 编辑 `~/Library/LaunchAgents/hosts-go.plist` 添加以下内容（替换
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>com.example.hosts-go</string>
+		<string>com.example.go-hosts</string>
 		<key>ProgramArguments</key>
 		<array>
-			<string>/path/to/hosts-go</string>
+			<string>/path/to/go-hosts</string>
 		</array>
 		<key>RunAtLoad</key>
 		<true/>
 		<key>StandardOutPath</key>
-		<string>/path/to/.hosts/hosts-go.log</string>
+		<string>/path/to/.hosts/go-hosts.log</string>
 		<key>StandardErrorPath</key>
-		<string>/path/to/.hosts/hosts-go.log</string>
+		<string>/path/to/.hosts/go-hosts.log</string>
 	</dict>
 </plist>
 ```
 
-然后执行 `launchctl load ~/Library/LaunchAgents/hosts-go.plist` 加载配置，之后可以使用 `launchctl unload ~/Library/LaunchAgents/hosts-go.plist` 来卸载配置。
+然后执行 `launchctl load ~/Library/LaunchAgents/go-hosts.plist` 加载配置，之后可以使用 `launchctl unload ~/Library/LaunchAgents/go-hosts.plist` 来卸载配置。
 
-windows 可以使用 [nssm](https://nssm.cc/download) 将 `hosts-go.exe` 配置为服务：
+windows 可以使用 [nssm](https://nssm.cc/download) 将 `go-hosts.exe` 配置为服务：
 
 1. 下载 nssm 解压到某个文件夹
-2. 在 powershell 中切换到 nssm 所在目录下再执行 `.\nssm.exe install hosts-go`
-3. 在弹出的窗口中填写 `hosts-go.exe` 路径，可选配置服务的标题、描述、日志路径等，点击 `Install Service` 安装
-4. 在服务中找到 `hosts-go` 服务，启动服务
-5. 之后可以通过 `.\nssm.exe remove hosts-go` 移除服务
+2. 在 powershell 中切换到 nssm 所在目录下再执行 `.\nssm.exe install go-hosts`
+3. 在弹出的窗口中填写 `go-hosts.exe` 路径，可选配置服务的标题、描述、日志路径等，点击 `Install Service` 安装
+4. 在服务中找到 `go-hosts` 服务，启动服务
+5. 之后可以通过 `.\nssm.exe remove go-hosts` 移除服务

@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cncws/hosts-go/cmd/flags"
-	"github.com/cncws/hosts-go/internal/op"
+	"github.com/cncws/go-hosts/cmd/flags"
+	"github.com/cncws/go-hosts/internal/op"
 	"github.com/fsnotify/fsnotify"
 )
 

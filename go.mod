@@ -1,4 +1,4 @@
-module github.com/cncws/hosts-go
+module github.com/cncws/go-hosts
 
 go 1.23.4
 

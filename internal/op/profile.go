@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cncws/hosts-go/cmd/flags"
+	"github.com/cncws/go-hosts/cmd/flags"
 )
 
 type profileReader func(string) ([]string, error)
